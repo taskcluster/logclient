@@ -1,0 +1,4 @@
+logclient
+=========
+
+Streaming log client
