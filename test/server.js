@@ -1,4 +1,5 @@
 var http = require('http');
+var debug = require('debug')('taskcluster-logclient:test-server');
 
 /**
 Testing server specifically designed for the use cases around testing the live
@@ -41,6 +42,7 @@ Server.prototype = {
 
   handleRequest: function(req, res) {
     var frame = this.frames[0];
+    debug('begin handle frame', !!frame);
 
     if (!frame) {
       res.writeHead(501);

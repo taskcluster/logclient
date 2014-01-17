@@ -1,4 +1,5 @@
 var rangeParser = require('range-parser');
+var debug = require('debug')('task-cluster-logclient:range_frame_test');
 
 function FrameState() {
   this.buffer = new Buffer(0);
@@ -39,10 +40,12 @@ function rangeFrame() {
   var state = new FrameState();
   var handler = function(req, res, done) {
     var headers = req.headers;
+    debug('range frame begin', headers);
 
     // if at any point state is marked as complete remove this handler from the
     // frames.
     if (state.complete) {
+      debug('range complete');
       res.setHeader(state.FINAL_HEADER, 1);
       done();
     }
@@ -52,8 +55,10 @@ function rangeFrame() {
 
     // check for if conditions
     if (headers['if-none-match'] === state.etag) {
+      debug('range etag match', state.etag);
       res.writeHead(304, {
-        'Content-Length': 0
+        'Content-Length': 0,
+        'Etag': state.etag
       });
       return res.end();
     }
@@ -62,6 +67,7 @@ function rangeFrame() {
     // check for range
     var rangeStr = headers.range;
     if (!rangeStr) {
+      debug('no range string');
       // if there is no range return the entire buffer
       res.writeHead(200, {
         'Content-Length': state.buffer.length
@@ -75,11 +81,13 @@ function rangeFrame() {
 
     // validate the range
     if (!range) {
+      debug('invalid range string', rangeStr);
       res.writeHead(416);
       return res.end();
     }
 
     var content = state.fetch(range.start);
+    debug('ranged fetch', range, content.length);
 
     res.writeHead(206, {
       'Content-Length': content.length
