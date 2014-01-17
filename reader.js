@@ -134,6 +134,10 @@ Reader.prototype = {
       }
 
       if (notModified) {
+        // All http request streams _must_ be consumed (via on data, pipe
+        // or calling .resume). If you don't things will randomly hang because
+        // we run out of sockets in the pool (or that is what it looks like)
+        res.resume();
         debug('etag match no content');
         return this._completeOrPoll(res);
       }
