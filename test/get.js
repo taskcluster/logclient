@@ -9,7 +9,16 @@ function get(url) {
 
     // handle success
     var req = http.get(url, function(res) {
-      accept(res);
+      var buffer = new Buffer(0);
+      res.on('data', function(content) {
+        buffer = Buffer.concat([buffer, content]);
+      });
+
+      res.on('end', function() {
+        res.content = buffer;
+        res.text = buffer.toString();
+        accept(res);
+      });
     });
 
     // handle errors

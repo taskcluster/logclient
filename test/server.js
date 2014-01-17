@@ -19,12 +19,24 @@ Server.prototype = {
   __proto__: http.Server.prototype,
   _super: http.Server.prototype,
 
+  /**
+  Add a request frame to the end of the stack.
+  @param {Function} handler (req, res).
+  @return {Function} handler.
+  */
   pushFrame: function(handler) {
     this.frames.push(handler);
+    return handler;
   },
 
+  /**
+  Add a request frame to the beginning of the stack.
+  @param {Function} handler (req, res).
+  @return {Function} handler.
+  */
   unshiftFrame: function(handler) {
     this.frames.unshift(handler);
+    return handler;
   },
 
   handleRequest: function(req, res) {
