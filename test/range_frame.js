@@ -5,6 +5,8 @@ function FrameState() {
 }
 
 FrameState.prototype = {
+  FINAL_HEADER: 'x-ms-meta-complete',
+
   etag: null,
 
   complete: false,
@@ -38,6 +40,13 @@ function rangeFrame() {
   var handler = function(req, res, done) {
     var headers = req.headers;
 
+    // if at any point state is marked as complete remove this handler from the
+    // frames.
+    if (state.complete) {
+      res.setHeader(state.FINAL_HEADER, 1);
+      done();
+    }
+
     // set the current etag state
     res.setHeader('Etag', state.etag);
 
@@ -49,9 +58,6 @@ function rangeFrame() {
       return res.end();
     }
 
-    // if at any point state is marked as complete remove this handler from the
-    // frames.
-    if (state.complete) done();
 
     // check for range
     var rangeStr = headers.range;
@@ -66,6 +72,13 @@ function rangeFrame() {
 
     // handle range requests
     var range = rangeParser(state.buffer.length, rangeStr)[0];
+
+    // validate the range
+    if (!range) {
+      res.writeHead(416);
+      return res.end();
+    }
+
     var content = state.fetch(range.start);
 
     res.writeHead(206, {

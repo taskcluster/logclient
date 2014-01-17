@@ -108,6 +108,26 @@ suite('range frame', function() {
         }
       );
     });
+
+    test('complete objects', function() {
+      var buffer = new Buffer('xfoo');
+      subject.end(buffer);
+
+      return httpGet(url).then(
+        function finalGrab(res) {
+          var headers = res.headers;
+          assert.ok(headers[subject.FINAL_HEADER], 'has final header');
+        }
+      );
+    });
+
+    test('invalid range', function() {
+      return getRange(1000).then(
+        function(res) {
+          assert.equal(res.statusCode, 416);
+        }
+      );
+    });
   });
 
 });
