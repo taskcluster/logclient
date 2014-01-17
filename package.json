@@ -1,5 +1,5 @@
 {
-  "name": "taskcluster-logclient",
+  "name": "taskcluster-logstream",
   "version": "0.0.0",
   "description": "Readable stream interface to live logger",
   "main": "reader.js",
