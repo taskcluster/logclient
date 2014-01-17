@@ -13,6 +13,7 @@ function FetchState(url) {
 }
 
 FetchState.prototype = {
+  complete: false,
 
   /**
   Determine the type of http object and return it.
@@ -27,24 +28,35 @@ FetchState.prototype = {
   /**
   Return the get options based on the current state.
   */
-  getOpts: function() {
+  getOpts: function(headers) {
     var opts = {};
     for (var key in this.httpOpts) {
       opts[key] = this.httpOpts[key];
     }
 
+    // custom headers
     opts.headers = {};
+    if (headers) {
+      for (var key in headers) {
+        opts.headers[key] = headers[key];
+      }
+    }
+
     if (this.etag) opts.headers['If-None-Match'] = this.etag;
     if (this.offset) opts.headers['Range'] = 'bytes=' + this.offset + '-';
     return opts;
   },
 
-  isComplete: function(res, header) {
-    return res.headers[header];
+  checkForComplete: function(res, header) {
+    if (res.headers[header]) {
+      return this.complete = true;
+    }
+    return false;
   }
 };
 
 function HttpStreams(url, options) {
+  options = options || {};
   stream.Readable.call(this, {
     // zero indicates that no preemptive buffering will occur. This is ideal
     // since we want to fetch a stream then consume it entirely before asking
@@ -66,6 +78,7 @@ function HttpStreams(url, options) {
   this._fetchState = new FetchState(url);
 
   // local options
+  if (options.headers) this.headers = options.headers;
   if (options.completeHeader) this.completeHeader = options.completeHeader;
   if (options.intervalMS) this.intervalMS = options.intervalMS;
 
@@ -76,8 +89,13 @@ function HttpStreams(url, options) {
 HttpStreams.prototype = {
   __proto__: stream.Readable.prototype,
 
-  intervalMS: 100,
+  intervalMS: 500,
   timeoutId: null,
+
+  /**
+  Custom headers to pass along in the request.
+  */
+  headers: null,
 
   /**
   Header that indicates the request is 100% complete.
@@ -91,7 +109,7 @@ HttpStreams.prototype = {
     res.resume();
 
     // some non error cases will trigger completion without new data (like 304)
-    if (state.isComplete(res, this.completeHeader)) {
+    if (state.checkForComplete(res, this.completeHeader)) {
       return this.push(null);
     }
 
@@ -117,8 +135,8 @@ HttpStreams.prototype = {
 
     this.push(res);
 
-    // new data may also come with a complete header.
-    if (state.isComplete(res, this.completeHeader)) {
+    // the complete header will only come with the 200 range responses
+    if (state.checkForComplete(res, this.completeHeader)) {
       return this.push(null);
     }
   },
@@ -128,10 +146,14 @@ HttpStreams.prototype = {
   */
   _read: function() {
     var state = this._fetchState;
-    var req = this._get(state.getOpts());
+
+    // ignore any reads if we are done
+    if (state.complete) return;
+
+    // issue the request and pass long our custom headers
+    var req = this._get(state.getOpts(this.headers));
 
     req.once('response', function(res) {
-
       var code = res.statusCode;
       var hasData = code > 199 && code < 300;
 

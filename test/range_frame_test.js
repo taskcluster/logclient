@@ -99,7 +99,7 @@ suite('range frame', function() {
     });
 
     test('etag writes', function() {
-      subject.write(new Buffer('xfoo'));
+      subject.end(new Buffer('xfoo'));
 
       return httpGet(url).then(
         function initialGrab(res) {
@@ -113,6 +113,7 @@ suite('range frame', function() {
           // 304 indicates nothing has changed.
           assert.equal(res.statusCode, 304);
           assert.equal(res.headers['content-length'], 0);
+          assert.ok(!res.headers[subject.FINAL_HEADER]);
         }
       );
     });

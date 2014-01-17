@@ -56,6 +56,24 @@ suite('http streams stream', function() {
     readStream();
   }
 
+  test('with custom headers', function(done) {
+    subject = new HttpStreams(url, {
+      headers: { 'x-custom': true }
+    });
+
+    server.unshiftFrame(function(req, res) {
+      res.writeHead(200);
+      res.end();
+      assert.ok(req.headers['x-custom']);
+      done();
+    });
+
+    // initiate the read...
+    subject.once('readable', function() {
+      subject.read();
+    });
+  });
+
   suite('read until end', function() {
     var buffers;
     setup(function() {

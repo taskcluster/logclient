@@ -29,6 +29,9 @@ FrameState.prototype = {
 
   end: function(buffer) {
     if (buffer) this.write(buffer);
+
+    // calling end updates the etag
+    this.etag = new Buffer('completed').toString('base64');
     this.complete = true;
   }
 };
@@ -39,21 +42,18 @@ Handles all requests for the server until the buffer is exhausted.
 function rangeFrame() {
   var state = new FrameState();
   var handler = function(req, res, done) {
+    state.close = done;
     var headers = req.headers;
     debug('range frame begin', headers);
 
     // if at any point state is marked as complete remove this handler from the
     // frames.
-    if (state.complete) {
-      debug('range complete');
-      res.setHeader(state.FINAL_HEADER, 1);
-      done();
-    }
 
     // set the current etag state
     res.setHeader('Etag', state.etag);
 
-    // check for if conditions
+    // check for if conditions note that 304 will not return the complete
+    // header
     if (headers['if-none-match'] === state.etag) {
       debug('range etag match', state.etag);
       res.writeHead(304, {
@@ -67,6 +67,12 @@ function rangeFrame() {
     if (!state.buffer.length) {
       res.writeHead(404);
       return res.end();
+    }
+
+    // if completed mark as complete
+    if (state.complete) {
+      debug('range complete');
+      res.setHeader(state.FINAL_HEADER, 1);
     }
 
     // check for range
