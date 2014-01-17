@@ -37,6 +37,14 @@ suite('range frame', function() {
 
   suite('fetching blocks from frame', function() {
 
+    test('without any content', function() {
+      return httpGet(url).then(
+        function missingBlock(res) {
+          assert.equal(res.statusCode, 404);
+        }
+      );
+    });
+
     test('the entire block', function() {
       var expected = new Buffer('xfoo');
       subject.end(expected);
@@ -122,6 +130,7 @@ suite('range frame', function() {
     });
 
     test('invalid range', function() {
+      subject.write(new Buffer('xxx'));
       return getRange(1000).then(
         function(res) {
           assert.equal(res.statusCode, 416);

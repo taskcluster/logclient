@@ -63,6 +63,11 @@ function rangeFrame() {
       return res.end();
     }
 
+    // if the buffer is of zero length return 404
+    if (!state.buffer.length) {
+      res.writeHead(404);
+      return res.end();
+    }
 
     // check for range
     var rangeStr = headers.range;

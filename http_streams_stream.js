@@ -46,8 +46,10 @@ FetchState.prototype = {
 
 function HttpStreams(url, options) {
   stream.Readable.call(this, {
-    // only buffer one stream at a time
-    highWaterMark: 1,
+    // zero indicates that no preemptive buffering will occur. This is ideal
+    // since we want to fetch a stream then consume it entirely before asking
+    // for another stream.
+    highWaterMark: 0,
 
     // streams are (obviously) objects
     objectMode: true
@@ -134,6 +136,7 @@ HttpStreams.prototype = {
       var hasData = code > 199 && code < 300;
 
       debug('response', code, 'has data:', hasData);
+      debug('response headers', res.headers);
 
       // handle the data case first (no retries)
       if (hasData) {

@@ -1,5 +1,5 @@
 suite('reader', function() {
-  var Reader = require('./');
+  var reader = require('./');
 
   // test utilities
   var Server = require('./test/server');
@@ -21,7 +21,7 @@ suite('reader', function() {
 
   var subject;
   setup(function() {
-    subject = new Reader(url, {
+    subject = reader(url, {
       intervalMS: 10
     });
   });
@@ -52,10 +52,21 @@ suite('reader', function() {
     // we also have cases where there is not any new data so we need to poll for
     // new data.
     test('each request yields data', function(done) {
-      subject.once('end', done);
+      var output = [];
+      var expected = Buffer.concat(buffers);
+
+      subject.once('end', function() {
+        assert.equal(
+          Buffer.concat(output).toString(),
+          expected.toString()
+        );
+
+        done();
+      });
 
       // (calling on data resumes the stream)
       subject.on('data', function(buffer) {
+        output.push(buffer);
         writeFromBufferList(buffers);
       });
 
