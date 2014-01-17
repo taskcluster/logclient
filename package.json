@@ -1,6 +1,6 @@
 {
   "name": "taskcluster-logstream",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Readable stream interface to live logger",
   "main": "reader.js",
   "scripts": {
