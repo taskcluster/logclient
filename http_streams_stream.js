@@ -1,6 +1,4 @@
 var URL = require('url');
-var Promise = require('promise');
-
 var stream = require('stream');
 var debug = require('debug')('task-cluster-logclient:http_streams');
 
