@@ -7,11 +7,10 @@ also needed some way to indicate when the stream ends.
 
 The readable stream interface provided does something like this:
 
- - issue a request to the given url 
-   (use range if offset is available and if-none-match conditionals if etag is available)
-   a. if its not in the 200 range retry in N ms
-   b. if its in the 200 range continue
-   c. if the request contains the 'x-ms-meta-complete' header mark
+ - issue a request to the given url (use range if offset is available and if-none-match conditionals if etag is available)
+   - a. if its not in the 200 range retry in N ms
+   - b. if its in the 200 range continue
+   - c. if the request contains the 'x-ms-meta-complete' header mark
       stream as complete (end event).
  - record the byte offset
  - record the etag
@@ -21,9 +20,8 @@ The readable stream interface provided does something like this:
 ## Usage
 
 ```js
-var url = 'myazureurl.txt';
 var Reader = require('taskcluster-logstream');
 
-var stream = new Reader(url);
+var stream = new Reader('myazureurl.txt');
 stream.pipe(process.stdout);
 ```
