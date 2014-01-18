@@ -24,9 +24,9 @@ FetchState.prototype = {
   },
 
   /**
-  Return the get options based on the current state.
+  Generate common options for http requests
   */
-  getOpts: function(headers) {
+  _headerOpts: function(headers) {
     var opts = {};
     for (var key in this.httpOpts) {
       opts[key] = this.httpOpts[key];
@@ -39,9 +39,29 @@ FetchState.prototype = {
         opts.headers[key] = headers[key];
       }
     }
+    return opts;
+  },
+
+  /**
+  Return the get options based on the current state.
+  */
+  getOpts: function(headers) {
+    var opts = this._headerOpts(headers);
+    opts.method = 'GET';
 
     if (this.etag) opts.headers['If-None-Match'] = this.etag;
     if (this.offset) opts.headers['Range'] = 'bytes=' + this.offset + '-';
+    return opts;
+  },
+
+  /**
+  Return head options suitable for waiting for new / complete data.
+  */
+  headOpts: function(headers) {
+    var opts = this._headerOpts(headers);
+    opts.method = 'HEAD';
+
+    if (this.etag) opts.headers['If-None-Match'] = this.etag;
     return opts;
   },
 
@@ -81,7 +101,7 @@ function HttpStreams(url, options) {
   if (options.intervalMS) this.intervalMS = options.intervalMS;
 
   // get the correct http interface
-  this._get = this._fetchState.httpObj().get;
+  this._request = this._fetchState.httpObj().request;
 }
 
 HttpStreams.prototype = {
@@ -100,25 +120,65 @@ HttpStreams.prototype = {
   */
   completeHeader: 'x-ms-meta-complete',
 
+  /**
+  Poll via HEAD requests until new data comes in.
+  */
+  _waitForEtagChange: function() {
+    debug('wait for etag change');
+    var state = this._fetchState;
+    var headOpts = state.headOpts(this.headers);
+
+    var req = this._request(headOpts, function head(res) {
+      // if the response is in the 200 range we go back to _read
+      var code = res.statusCode;
+
+      // ensure request stream is freed up.
+      res.resume();
+
+      debug('etag response', code);
+
+      // something has changed
+      if (code > 199 && code < 300) {
+        // its possible the complete value came in but the length is the same so
+        // so ensure there are new bytes
+        var contentLength = parseInt(res.headers['content-length'], 10);
+
+        if (contentLength > state.offset) {
+          // there are some new bytes so issue a GET to do the work.
+          return this._read();
+        }
+
+        // its also possible there are no new bytes but the resource is now
+        // complete so check for the complete header.
+        if (state.checkForComplete(res, this.completeHeader)) {
+          debug('resource complete');
+          // we are now complete so stop looking for new data and mark the end
+          // of the stream.
+          this.push(null);
+        }
+      }
+
+      debug('retry etag change in', this.intervalMS, 'ms');
+
+      // poll until something changes
+      this.timeoutId = setTimeout(
+        this._waitForEtagChange.bind(this),
+        this.intervalMS
+      );
+    }.bind(this));
+
+    req.once('error', this.emit.bind(this, 'error'));
+    req.end();
+  },
+
   handleRetries: function(res) {
     var state = this._fetchState;
 
     // ensure these streams (which nobody else will see) get freed up.
     res.resume();
 
-    // some non error cases will trigger completion without new data (like 304)
-    if (state.checkForComplete(res, this.completeHeader)) {
-      return this.push(null);
-    }
-
-    // everything else is a retry
-    debug('retrying', 'will retry in', this.intervalMS, 'ms');
-
-    // XXX: We might want exponential back off in some error cases
-    this.timeoutId = setTimeout(
-      this._read.bind(this),
-      this.intervalMS
-    );
+    // wait until something changes
+    this._waitForEtagChange();
   },
 
   handleNewData: function(res) {
@@ -135,6 +195,7 @@ HttpStreams.prototype = {
 
     // the complete header will only come with the 200 range responses
     if (state.checkForComplete(res, this.completeHeader)) {
+      debug('resource complete');
       return this.push(null);
     }
   },
@@ -149,7 +210,8 @@ HttpStreams.prototype = {
     if (state.complete) return;
 
     // issue the request and pass long our custom headers
-    var req = this._get(state.getOpts(this.headers));
+    var req = this._request(state.getOpts(this.headers));
+    req.end();
 
     req.once('response', function(res) {
       var code = res.statusCode;

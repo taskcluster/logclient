@@ -46,8 +46,10 @@ function rangeFrame() {
     var headers = req.headers;
     debug('range frame begin', headers);
 
-    // if at any point state is marked as complete remove this handler from the
-    // frames.
+    // if its a HEAD reqeust set the content length in all cases
+    if (req.method === 'HEAD') {
+      res.setHeader('Content-Length', state.buffer.length);
+    }
 
     // set the current etag state
     res.setHeader('Etag', state.etag);
@@ -57,7 +59,6 @@ function rangeFrame() {
     if (headers['if-none-match'] === state.etag) {
       debug('range etag match', state.etag);
       res.writeHead(304, {
-        'Content-Length': 0,
         'Etag': state.etag
       });
       return res.end();
@@ -93,6 +94,8 @@ function rangeFrame() {
     // validate the range
     if (!range) {
       debug('invalid range string', rangeStr);
+      // invalid range should never include the final header
+      res.removeHeader(state.FINAL_HEADER);
       res.writeHead(416);
       return res.end();
     }

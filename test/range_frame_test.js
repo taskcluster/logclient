@@ -112,7 +112,7 @@ suite('range frame', function() {
         function withEtag(res) {
           // 304 indicates nothing has changed.
           assert.equal(res.statusCode, 304);
-          assert.equal(res.headers['content-length'], 0);
+          assert.ok(!res.headers['content-length']);
           assert.ok(!res.headers[subject.FINAL_HEADER]);
         }
       );
@@ -131,10 +131,14 @@ suite('range frame', function() {
     });
 
     test('invalid range', function() {
-      subject.write(new Buffer('xxx'));
+      subject.end(new Buffer('xxx'));
       return getRange(1000).then(
         function(res) {
           assert.equal(res.statusCode, 416);
+          assert.ok(
+            !res.headers[subject.FINAL_HEADER],
+            'invalid range does not include final header'
+          );
         }
       );
     });
