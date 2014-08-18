@@ -6,12 +6,15 @@ function FetchState(url) {
   this.offset = 0;
   this.etag = 0;
   this.complete = false;
-
-  this.httpOpts = URL.parse(url);
+  this.setUrl(url);
 }
 
 FetchState.prototype = {
   complete: false,
+
+  setUrl: function(url) {
+    this.httpOpts = URL.parse(url);
+  },
 
   /**
   Determine the type of http object and return it.
@@ -216,9 +219,18 @@ HttpStreams.prototype = {
     req.once('response', function(res) {
       var code = res.statusCode;
       var hasData = code > 199 && code < 300;
-
       debug('response', code, 'has data:', hasData);
       debug('response headers', res.headers);
+      if (
+        (code === 301 || code === 303 || code === 307) &&
+        res.headers['location']
+      ) {
+        // Update location of resource to new endpoint...
+        debug('redirect', res.headers['location']);
+        this.url = res.headers['location'];
+        this._fetchState.setUrl(res.headers['location']);
+        return this._read();
+      }
 
       // handle the data case first (no retries)
       if (hasData) {
@@ -227,9 +239,7 @@ HttpStreams.prototype = {
 
       // everything else will yield a retry
       this.handleRetries(res);
-
     }.bind(this));
-
     req.once('error', this.emit.bind(this, 'error'));
   }
 };
